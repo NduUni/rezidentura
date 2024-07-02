@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dosya Yöneticisi</title>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            display: flex; /* Ana sayfada 2 sıra için flex kullan */
+            flex-wrap: wrap;
+            justify-content: space-between;
+            padding: 20px;
+            transition: transform 0.3s ease;
+            margin-top: -15px; /* Arama çubuğunun altında boşluk */
+        }
+
+        .search-container {
+            width: 85%; /* Klasör yolunu gösteren kısmın genişliği ile aynı olsun */
+            display: flex;
+            align-items: center;
+            background-color: var(--item-background-color);
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin: 20px auto; /* Search box'ı ortala */
+        }
+
+        .search-container input {
+            width: 70%;
+            flex-grow: 1; /* Boşluğu doldurması için */
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+
+        .search-container button {
+            padding: 8px 15px;
+            background-color: var(--button-background-color);
+            color: var(--button-text-color);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+            margin-right: 10px;
+        }
+
+        .search-container button:hover {
+            background-color: var(--button-hover-background-color);
+        }
+
+        .folder, .file {
+            width: calc(50% - 30px); /* Ana sayfada 2 sıra için */
+            height: 120px;
+            margin: 10px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+            padding: 10px;
+            box-sizing: border-box;
+            cursor: pointer;
+            background-color: var(--item-background-color);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .folder:hover, .file:hover {
+            background-color: var(--item-hover-background-color);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .folder-icon, .file-icon {
+            font-size: 40px;
+            margin-bottom: 5px;
+            color: var(--icon-color);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Geri butonunu gizle */
+        .back-button {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            background-color: var(--button-background-color);
+            color: var(--button-text-color);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+            display: none; /* Başlangıçta gizli */
+        }
+
+        .back-button:hover {
+            background-color: var(--button-hover-background-color);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .folder:active, .file:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .back-button:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .folder::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--item-background-color);
+            z-index: -1;
+            transform-origin: left top;
+            transform: rotateY(-90deg);
+            transition: transform 0.3s ease;
+        }
+
+        .folder:hover::before {
+            transform: rotateY(0deg);
+        }
+
+        /* Butonlar için bölüm */
+        .control-panel {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-panel button {
+            padding: 10px 20px;
+            background-color: var(--button-background-color);
+            color: var(--button-text-color);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .control-panel button:hover {
+            background-color: var(--button-hover-background-color);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Klasör yolunu göstermek için */
+        .path-bar {
+            width: 300px; /* Klasör yolunu gösteren kısmın genişliği */
+            margin: -10px auto;
+            background-color: var(--item-background-color);
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .path-bar span {
+            display: inline-block;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        /* Dosya bilgileri için */
+        .file-info {
+            font-size: 12px;
+            color: var(--icon-color);
+        }
+
+        :root {
+            --background-color: #212529;
+            --text-color: #fff;
+            --border-color: #444;
+            --item-background-color: #282c34;
+            --item-hover-background-color: #343a40;
+            --icon-color: #ddd;
+            --button-background-color: #343a40;
+            --button-text-color: #fff;
+            --button-hover-background-color: #444;
+            --file-name-color: #e0e0e0; /* Açık gri - Karanlık tema */
+        }
+
+        .light-mode {
+            --background-color: #f0f0f0; /* Daha az beyaz */
+            --text-color: #333;
+            --border-color: #ddd;
+            --item-background-color: #fff;
+            --item-hover-background-color: #e2e2e2;
+            --icon-color: #555;
+            --button-background-color: #008CBA;
+            --button-text-color: #fff;
+            --button-hover-background-color: #005f5f;
+            --file-name-color: #333; /* Koyu gri - Aydınlık tema */
+        }
+
+        /* Sıfırlama butonu */
+        .reset-search {
+            padding: 8px 15px;
+            background-color: var(--button-background-color);
+            color: var(--button-text-color);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+            margin-right: 10px;
+        }
+
+        .reset-search:hover {
+            background-color: var(--button-hover-background-color);
+        }
+
+        /* Arama sonuçları için ızgara düzeni */
+        .search-results {
+            display: grid;
+            gap: 20px;
+            grid-template-columns: repeat(2, 150fr); /* 3x3 ızgara */
+            padding: 20px;
+            margin-top: 20px; /* Arama çubuğunun altında boşluk */
+        }
+
+        /* Dosyalar ve klasörler için daha büyük boyut */
+        .search-results .folder, .search-results .file {
+            width: calc(70% - -25px);
+            height: auto;
+            margin: 0 10px;
+            text-align: left;
+            padding: 15px;
+            font-size: 1.1rem;
+        }
+
+        .search-results .file-info {
+            font-size: 14px;
+        }
+
+        /* Dosya ve klasör isimlerinin rengi */
+        .file div:nth-child(2),
+        .folder div:last-child {
+            color: var(--file-name-color);
+        }
+
+        .search-container button:focus,
+        .reset-search:focus,
+        .back-button:focus,
+        .control-panel button:focus {
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="search-container">
+        <input id="search" type="text" placeholder="Axtarış et...">
+        <button id="submit">🔍</button>
+        <button class="reset-search" id="reset-search">✖️</button>
+    </div>
+
+    <div class="path-bar" id="path-bar">
+        <span data-folder="file-explorer">RezidenTunar</span>
+    </div>
+
+    <button class="back-button">Geriyə</button>
+
+    <div id="file-explorer" class="container">
+        <div class="folder" data-folder="folder1">
+            <div class="folder-icon">📁</div>
+            <div>Anatomiya</div>
+        </div>
+        <div class="folder" data-folder="folder2">
+            <div class="folder-icon">📁</div>
+            <div>Histologiya</div>
+        </div>
+        <div class="folder" data-folder="folder3">
+            <div class="folder-icon">📁</div>
+            <div>Mikrobiologiya</div>
+        </div>
+        <div class="folder" data-folder="folder4">
+            <div class="folder-icon">📁</div>
+            <div>Biokimya</div>
+        </div>
+        <div class="folder" data-folder="folder5">
+            <div class="folder-icon">📁</div>
+            <div>Patologiya</div>
+        </div>
+    </div>
+
+    <div id="folder1" class="container hidden">
+        <div class="folder" data-folder="folder1-1">
+            <div class="folder-icon">📁</div>
+            <div>Kitab</div>
+        </div>
+        <div class="folder" data-folder="folder1-2">
+            <div class="folder-icon">📁</div>
+            <div>Konspekt</div>
+        </div>
+        <div class="folder" data-folder="folder1-3">
+            <div class="folder-icon">📁</div>
+            <div>Testlər</div>
+        </div>
+    </div>
+
+    <div id="folder2" class="container hidden">
+        <div class="folder" data-folder="folder2-1">
+            <div class="folder-icon">📁</div>
+            <div>Kitab</div>
+        </div>
+        <div class="folder" data-folder="folder2-2">
+            <div class="folder-icon">📁</div>
+            <div>Konspekt</div>
+        </div>
+        <div class="folder" data-folder="folder2-3">
+            <div class="folder-icon">📁</div>
+            <div>Testlər</div>
+        </div>
+    </div>
+
+    <div id="folder3" class="container hidden">
+        <div class="folder" data-folder="folder3-1">
+            <div class="folder-icon">📁</div>
+            <div>Kitab</div>
+        </div>
+        <div class="folder" data-folder="folder3-2">
+            <div class="folder-icon">📁</div>
+            <div>Konspekt</div>
+        </div>
+        <div class="folder" data-folder="folder3-3">
+            <div class="folder-icon">📁</div>
+            <div>Testlər</div>
+        </div>
+    </div>
+
+    <div id="folder4" class="container hidden">
+        <div class="folder" data-folder="folder4-1">
+            <div class="folder-icon">📁</div>
+            <div>Kitab</div>
+        </div>
+        <div class="folder" data-folder="folder4-2">
+            <div class="folder-icon">📁</div>
+            <div>Konspekt</div>
+        </div>
+        <div class="folder" data-folder="folder4-3">
+            <div class="folder-icon">📁</div>
+            <div>Testlər</div>
+        </div>
+    </div>
+
+    <div id="folder5" class="container hidden">
+        <div class="folder" data-folder="folder5-1">
+            <div class="folder-icon">📁</div>
+            <div>Kitab</div>
+        </div>
+        <div class="folder" data-folder="folder5-2">
+            <div class="folder-icon">📁</div>
+            <div>Konspekt</div>
+        </div>
+        <div class="folder" data-folder="folder5-3">
+            <div class="folder-icon">📁</div>
+            <div>Testlər</div>
+        </div>
+    </div>
+
+    <div id="folder1-1" class="container hidden">
+        <a class="file" href="example1.pdf" download>
+            <div class="file-icon">📄</div>
+            <div>example1.pdf</div>
+            <div class="file-info">1.5 MB</div>
+        </a>
+    </div>
+    <div id="folder1-2" class="container hidden">
+        <a class="file" href="example2.pdf" download>
+            <div class="file-icon">📄</div>
+            <div>example2.pdf</div>
+            <div class="file-info">2.2 MB</div>
+        </a>
+    </div>
+    <div id="folder1-3" class="container hidden">
+        <a class="file" href="example3.pdf" download>
+            <div class="file-icon">📄</div>
+            <div>example3.pdf</div>
+            <div class="file-info">1.8 MB</div>
+        </a>
+    </div>
+
+    <div id="folder2-1" class="container hidden">
+        <a class="file" href="example4.pdf" download>
+            <div class="file-icon">📄</div>
+            <div>example4.pdf</div>
+            <div class="file-info">3.1 MB</div>
+        </a>
+    </div>
+    <div id="folder2-2" class="container hidden">
+        <a class="file" href="example5.pdf" download>
+            <div class="file-icon">📄</div>
+            <div>example5.pdf</div>
+            <div class="file-info">1.2 MB</div>
+        </a>
+    </div>
+    <div id="folder2-3" class="container hidden">
+        <a class="file" href="example6.pdf" download>
+            <div class="file-icon">📄</div>
+            <div>example6.pdf</div>
+            <div class="file-info">2.7 MB</div>
+        </a>
+    </div>
+
+    <div id="folder3-1" class="container hidden">
+        <a class="file" href="example7.pdf" download>
+            <div class="file-icon">📄</div>
+            <div>example7.pdf</div>
+            <div class="file-info">4.5 MB</div>
+        </a>
+    </div>
+    <div id="folder3-2" class="container hidden">
+        <a class="file" href="example8.pdf" download>
+            <div class="file-icon">📄</div>
+            <div>example8.pdf</div>
+            <div class="file-info">1.9 MB</div>
+        </a>
+    </div>
+    <div id="folder3-3" class="container hidden">
+        <a class="file" href="example9.pdf" download>
+            <div class="file-icon">📄</div>
+            <div>example9.pdf</div>
+            <div class="file-info">2.6 MB</div>
+        </a>
+    </div>
+
+    <div id="folder4-1" class="container hidden">
+        <a class="file" href="example10.pdf" download>
+            <div class="file-icon">📄</div>
+            <div>example10.pdf</div>
+            <div class="file-info">3.8 MB</div>
+        </a>
+    </div>
+    <div id="folder4-2" class="container hidden">
+        <a class="file" href="example11.pdf" download>
+            <div class="file-icon">📄</div>
+            <div>example11.pdf</div>
+            <div class="file-info">1.7 MB</div>
+        </a>
+    </div>
+    <div id="folder4-3" class="container hidden">
+        <a class="file" href="example12.pdf" download>
+            <div class="file-icon">📄</div>
+            <div>example12.pdf</div>
+            <div class="file-info">2.4 MB</div>
+        </a>
+    </div>
+
+    <div id="folder5-1" class="container hidden">
+        <a class="file" href="example13.pdf" download>
+            <div class="file-icon">📄</div>
+            <div>example13.pdf</div>
+            <div class="file-info">4.2 MB</div>
+        </a>
+    </div>
+    <div id="folder5-2" class="container hidden">
+        <a class="file" href="example14.pdf" download>
+            <div class="file-icon">📄</div>
+            <div>example14.pdf</div>
+            <div class="file-info">1.6 MB</div>
+        </a>
+    </div>
+    <div id="folder5-3" class="container hidden">
+        <a class="file" href="example15.pdf" download>
+            <div class="file-icon">📄</div>
+            <div>example15.pdf</div>
+            <div class="file-info">2.3 MB</div>
+        </a>
+    </div>
+
+    <div id="search-results" class="search-results hidden">
+    </div>
+
+    <div class="control-panel">
+        <button id="theme-button">Tema Değiştir</button>
+        <!-- ... Diğer butonlar ... -->
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const folders = document.querySelectorAll('.folder');
+            const backButton = document.querySelector('.back-button');
+            const themeButton = document.getElementById('theme-button');
+            const pathBar = document.getElementById('path-bar');
+            let currentFolder = document.getElementById('file-explorer');
+            let folderStack = [];
+            const searchInput = document.getElementById('search');
+            const searchButton = document.getElementById('submit');
+            const resetButton = document.getElementById('reset-search');
+            const searchResults = document.getElementById('search-results');
+
+            function toggleTheme() {
+                document.body.classList.toggle('light-mode');
+            }
+
+            folders.forEach(folder => {
+                folder.addEventListener('click', () => {
+                    const targetFolderId = folder.getAttribute('data-folder');
+                    const targetFolder = document.getElementById(targetFolderId);
+                    if (targetFolder) {
+                        folderStack.push(currentFolder);
+                        currentFolder.classList.add('hidden');
+                        targetFolder.classList.remove('hidden');
+                        backButton.style.display = 'block';
+                        currentFolder = targetFolder;
+                        themeButton.style.display = 'none'; 
+
+                        // Klasör yolunu güncelle (burada düzeltildi)
+                        const folderName = folder.querySelector('div:last-child').textContent;
+                        const currentPath = pathBar.textContent;
+                        pathBar.textContent = `${currentPath} / ${folderName}`;
+                    }
+                });
+            });
+
+            backButton.addEventListener('click', () => {
+                if (folderStack.length > 0) {
+                    currentFolder.classList.add('hidden');
+                    currentFolder = folderStack.pop();
+                    currentFolder.classList.remove('hidden');
+                    if (folderStack.length === 0) {
+                        backButton.style.display = 'none';
+                        themeButton.style.display = 'block';
+
+                        // Klasör yolunu sıfırla
+                        pathBar.textContent = 'RezidenTunar';
+                    } else {
+                        // Yolunu güncelle (bir üst klasöre geri dön)
+                        const pathArray = pathBar.textContent.split(' / ');
+                        pathArray.pop();
+                        pathBar.textContent = pathArray.join(' / ');
+                    }
+                }
+            });
+
+            // Klasör yolundaki öğelere tıklama eventi
+            const pathLinks = document.querySelectorAll('.path-bar span');
+            pathLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    const targetFolderId = link.getAttribute('data-folder');
+                    const targetFolder = document.getElementById(targetFolderId);
+                    if (targetFolder) {
+                        // Klasör geçmişini temizle
+                        folderStack = [];
+                        // Tüm klasörleri gizle
+                        document.querySelectorAll('.container').forEach(folder => {
+                            folder.classList.add('hidden');
+                        });
+                        // Hedef klasörü göster
+                        targetFolder.classList.remove('hidden');
+                        // Geri butonunu gizle
+                        backButton.style.display = 'none';
+                        // Tema değiştir butonunu göster
+                        themeButton.style.display = 'block';
+                        // Aktif klasörü güncelle
+                        currentFolder = targetFolder;
+                        // Klasör yolunu güncelle
+                        if (targetFolderId === 'file-explorer') {
+                            pathBar.textContent = 'RezidenTunar';
+                        } else {
+                            pathBar.textContent = link.textContent;
+                        }
+                    }
+                });
+            });
+
+            themeButton.addEventListener('click', toggleTheme);
+
+            // Arama formu gönderildiğinde
+            searchButton.addEventListener('click', () => {
+                const searchTerm = searchInput.value.toLowerCase();
+                const files = document.querySelectorAll('.file');
+                const folders = document.querySelectorAll('.folder');
+
+                // Arama sonuçları için konteyneri temizle
+                searchResults.innerHTML = '';
+
+                // Dosya ve klasör isimlerini ara
+                files.forEach(file => {
+                    if (file.querySelector('div:nth-child(2)').textContent.toLowerCase().includes(searchTerm)) {
+                        const fileClone = file.cloneNode(true); // Dosyayı kopyala
+                        searchResults.appendChild(fileClone); // Kopyayı arama sonuçlarına ekle
+                    }
+                });
+
+                folders.forEach(folder => {
+                    if (folder.querySelector('div:last-child').textContent.toLowerCase().includes(searchTerm)) {
+                        const folderClone = folder.cloneNode(true); // Klasörü kopyala
+                        searchResults.appendChild(folderClone); // Kopyayı arama sonuçlarına ekle
+                    }
+                });
+
+                // Tüm klasörleri gizle
+                document.querySelectorAll('.container').forEach(container => {
+                    container.classList.add('hidden');
+                });
+
+                // Arama sonuçları konteynerini göster
+                searchResults.classList.remove('hidden');
+
+                // Geri ve tema değiştir butonunu gizle
+                backButton.style.display = 'none';
+                themeButton.style.display = 'none';
+            });
+
+            // Arama sonuçlarını sıfırlama
+            resetButton.addEventListener('click', () => {
+                searchInput.value = ''; // Arama kutusunu temizle
+                // Arama sonuçlarını gizle
+                searchResults.classList.add('hidden');
+                // Arama sonuçlarını sil
+                searchResults.innerHTML = ''; // Arama sonuçlarının içini temizle
+                // Ana sayfaya geri dön
+                folderStack = []; // Klasör yığını temizle
+                // Tüm konteynerleri gizle
+                document.querySelectorAll('.container').forEach(container => {
+                    container.classList.add('hidden');
+                });
+                // Ana konteyneri göster
+                currentFolder = document.getElementById('file-explorer');
+                currentFolder.classList.remove('hidden');
+                backButton.style.display = 'none';
+                themeButton.style.display = 'block';
+                pathBar.textContent = 'RezidenTunar';
+            });
+        });
+    </script>
+</body>
+</html>
